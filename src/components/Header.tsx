@@ -9,14 +9,20 @@ const Header = () => {
           <Camera className="h-8 w-8 text-surveillance-accent" />
           <div>
             <h1 className="text-xl font-bold">WatchfulEye</h1>
-            <p className="text-xs text-muted-foreground">ESP32-CAM + YOLO Processing Server</p>
+            <p className="text-xs text-muted-foreground">YOLO v8 Object Detection System</p>
           </div>
         </div>
         
         <div className="text-sm text-muted-foreground">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 rounded-full bg-surveillance-success animate-pulse"></div>
-            <span>YOLO v8 Active</span>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 rounded-full bg-surveillance-success animate-pulse"></div>
+              <span>ESP32-CAM</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 rounded-full bg-surveillance-success animate-pulse"></div>
+              <span>YOLO v8</span>
+            </div>
           </div>
         </div>
       </div>
