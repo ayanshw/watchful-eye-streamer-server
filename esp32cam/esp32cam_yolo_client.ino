@@ -1,4 +1,3 @@
-
 /**
  * ESP32-CAM UDP Client for YOLO Processing
  * Captures and sends camera frames to a Python server for object detection
@@ -15,6 +14,17 @@ const char* password = "YOUR_WIFI_PASSWORD";
 // Server details
 const char* serverIP = "192.168.1.100";  // Change to your server IP
 const int serverPort = 8090;
+
+// Camera ID (should be unique for each camera)
+const uint32_t CAMERA_ID = 1;  // Change this for each camera
+
+// Operating modes
+bool surveillanceMode = false;
+const unsigned long normalInterval = 1000;     // 1fps
+const unsigned long surveillanceInterval = 67; // ~15fps
+unsigned long lastFrameTime = 0;
+unsigned long frameInterval = normalInterval;
+uint32_t frameNumber = 0;
 
 // Camera configuration
 #define PWDN_GPIO_NUM     32
@@ -33,14 +43,6 @@ const int serverPort = 8090;
 #define VSYNC_GPIO_NUM    25
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
-
-// Operating modes
-bool surveillanceMode = false;
-const unsigned long normalInterval = 1000;     // 1fps
-const unsigned long surveillanceInterval = 67; // ~15fps
-unsigned long lastFrameTime = 0;
-unsigned long frameInterval = normalInterval;
-uint32_t frameNumber = 0;
 
 // UDP client
 WiFiUDP udp;
@@ -151,32 +153,40 @@ void captureAndSendFrame() {
     return;
   }
   
-  // Prepare metadata (20 bytes)
-  uint8_t metadata[20] = {0};
-  metadata[0] = surveillanceMode ? 1 : 0;
+  // Prepare metadata (24 bytes - added 4 bytes for camera ID)
+  uint8_t metadata[24] = {0};
+  
+  // Camera ID (4 bytes)
+  metadata[0] = (CAMERA_ID >> 24) & 0xFF;
+  metadata[1] = (CAMERA_ID >> 16) & 0xFF;
+  metadata[2] = (CAMERA_ID >> 8) & 0xFF;
+  metadata[3] = CAMERA_ID & 0xFF;
+  
+  // Mode flag
+  metadata[4] = surveillanceMode ? 1 : 0;
   
   // Frame number (4 bytes)
-  metadata[1] = (frameNumber >> 24) & 0xFF;
-  metadata[2] = (frameNumber >> 16) & 0xFF;
-  metadata[3] = (frameNumber >> 8) & 0xFF;
-  metadata[4] = frameNumber & 0xFF;
+  metadata[5] = (frameNumber >> 24) & 0xFF;
+  metadata[6] = (frameNumber >> 16) & 0xFF;
+  metadata[7] = (frameNumber >> 8) & 0xFF;
+  metadata[8] = frameNumber & 0xFF;
   
   // Timestamp (8 bytes)
   uint64_t timestamp = millis();
   for (int i = 0; i < 8; i++) {
-    metadata[5 + i] = (timestamp >> (8 * (7 - i))) & 0xFF;
+    metadata[9 + i] = (timestamp >> (8 * (7 - i))) & 0xFF;
   }
   
   // Image size (4 bytes)
   uint32_t imgSize = fb->len;
-  metadata[13] = (imgSize >> 24) & 0xFF;
-  metadata[14] = (imgSize >> 16) & 0xFF;
-  metadata[15] = (imgSize >> 8) & 0xFF;
-  metadata[16] = imgSize & 0xFF;
+  metadata[17] = (imgSize >> 24) & 0xFF;
+  metadata[18] = (imgSize >> 16) & 0xFF;
+  metadata[19] = (imgSize >> 8) & 0xFF;
+  metadata[20] = imgSize & 0xFF;
   
   // Send UDP packet
   udp.beginPacket(serverIP, serverPort);
-  udp.write(metadata, 20);
+  udp.write(metadata, 24);
   
   // Send image data in chunks
   const size_t MAX_CHUNK = 1024;
@@ -193,8 +203,9 @@ void captureAndSendFrame() {
   esp_camera_fb_return(fb);
   frameNumber++;
   
-  Serial.printf("Frame %u sent in %s mode, size: %u bytes\n", 
+  Serial.printf("Camera %u: Frame %u sent in %s mode, size: %u bytes\n", 
+                CAMERA_ID,
                 frameNumber, 
                 surveillanceMode ? "surveillance" : "normal", 
-                imgSize + 20);
+                imgSize + 24);
 }
