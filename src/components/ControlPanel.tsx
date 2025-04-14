@@ -1,10 +1,10 @@
-
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScanSearch, Save, Settings, Radio, AlertTriangle, Eye, Video } from "lucide-react";
+import { toast } from "sonner";
 
 interface ControlPanelProps {
   isConnected: boolean;
@@ -17,6 +17,32 @@ const ControlPanel = ({
   isSurveillanceMode,
   onToggleSurveillanceMode 
 }: ControlPanelProps) => {
+  const handleModeToggle = async () => {
+    try {
+      // Send mode change request to the server
+      const response = await fetch('/api/camera/mode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          surveillance_mode: !isSurveillanceMode
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to change mode');
+      }
+
+      // If server accepted the change, update local state
+      onToggleSurveillanceMode();
+      
+    } catch (error) {
+      console.error('Error changing camera mode:', error);
+      toast.error('Failed to change camera mode');
+    }
+  };
+
   return (
     <Card className="bg-card">
       <CardHeader className="pb-3">
@@ -44,7 +70,7 @@ const ControlPanel = ({
               <Switch 
                 id="surveillance-mode" 
                 checked={isSurveillanceMode}
-                onCheckedChange={onToggleSurveillanceMode}
+                onCheckedChange={handleModeToggle}
                 disabled={!isConnected}
               />
             </div>

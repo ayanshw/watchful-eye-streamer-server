@@ -1,4 +1,3 @@
-
 import socket
 import numpy as np
 import cv2
@@ -38,6 +37,9 @@ class YOLOServer:
         self.cameras: Dict[int, Camera] = {}  # camera_id -> Camera
         self.cameras_lock = threading.Lock()
         self.processing_times: List[float] = []
+        
+        # Command socket for sending control messages to cameras
+        self.cmd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         
         # Callbacks
         self.on_detection = None
@@ -211,8 +213,26 @@ class YOLOServer:
             print("-" * 50)
             time.sleep(30)
     
+    def set_camera_mode(self, camera_id: int, surveillance_mode: bool) -> None:
+        """Send mode change command to a specific camera"""
+        with self.cameras_lock:
+            if camera_id in self.cameras:
+                camera = self.cameras[camera_id]
+                # Create command packet: [CMD_TYPE(1) | camera_id(4) | mode(1)]
+                cmd_packet = bytearray([1])  # Command type 1 = mode change
+                cmd_packet.extend(camera_id.to_bytes(4, byteorder='big'))
+                cmd_packet.append(1 if surveillance_mode else 0)
+                
+                try:
+                    self.cmd_sock.sendto(cmd_packet, camera.addr)
+                    print(f"Sent mode change command to Camera {camera_id}: {'surveillance' if surveillance_mode else 'normal'} mode")
+                except Exception as e:
+                    print(f"Error sending mode command to Camera {camera_id}: {e}")
+    
     def stop(self) -> None:
         """Stop the server"""
         self.running = False
         if self.sock:
             self.sock.close()
+        if self.cmd_sock:
+            self.cmd_sock.close()

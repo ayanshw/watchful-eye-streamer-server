@@ -47,6 +47,28 @@ uint32_t frameNumber = 0;
 // UDP client
 WiFiUDP udp;
 
+// Command processing
+#define CMD_MODE_CHANGE 1
+
+void processCommand(uint8_t* data, size_t len) {
+  if (len < 6) return;  // Minimum command length
+  
+  uint8_t cmdType = data[0];
+  uint32_t targetCamId = (data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4];
+  
+  // Only process if command is for this camera
+  if (targetCamId != CAMERA_ID) return;
+  
+  switch (cmdType) {
+    case CMD_MODE_CHANGE:
+      if (len >= 6) {
+        bool newMode = data[5] == 1;
+        setMode(newMode);
+      }
+      break;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("ESP32-CAM UDP Client");
@@ -72,20 +94,27 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentTime = millis();
+  // Check for incoming commands
+  int packetSize = udp.parsePacket();
+  if (packetSize) {
+    uint8_t buffer[32];  // Command buffer
+    int len = udp.read(buffer, sizeof(buffer));
+    if (len > 0) {
+      processCommand(buffer, len);
+    }
+  }
   
-  // Check if it's time to send a frame
+  // Original frame capture logic
+  unsigned long currentTime = millis();
   if (currentTime - lastFrameTime >= frameInterval) {
     captureAndSendFrame();
     lastFrameTime = currentTime;
     
-    // Blink LED to indicate frame sent
     digitalWrite(4, HIGH);
     delay(5);
     digitalWrite(4, LOW);
   }
   
-  // Small delay to prevent CPU hogging
   delay(5);
 }
 
